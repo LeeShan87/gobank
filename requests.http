@@ -1,0 +1,17 @@
+
+@api=http://localhost:4000
+###
+GET {{api}}/account HTTP/1.1
+
+###
+GET {{api}}/account/42 HTTP/1.1
+
+###
+POST {{api}}/account HTTP/1.1
+
+
+###
+DELETE {{api}}/account HTTP/1.1
+
+###
+OPTIONS  {{api}}/account HTTP/1.1
