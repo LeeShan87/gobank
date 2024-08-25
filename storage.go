@@ -9,7 +9,7 @@ import (
 
 type Storage interface {
 	CreateAccount(*Account) error
-	GetAccountByID(int) error
+	GetAccountByID(int) (*Account, error)
 	GetAccounts() (*[]Account, error)
 	UpdateAccount(*Account) error
 	DeleteAccount(int) error
@@ -49,6 +49,7 @@ func (s *PostgresStore) createAccountTable() error {
 	_, err := s.db.Exec(query)
 	return err
 }
+
 func (s *PostgresStore) CreateAccount(account *Account) error {
 	query := `INSERT INTO account(
 	first_name, 
@@ -70,8 +71,18 @@ func (s *PostgresStore) CreateAccount(account *Account) error {
 	return nil
 }
 
-func (s *PostgresStore) GetAccountByID(id int) error {
-	return nil
+func (s *PostgresStore) GetAccountByID(id int) (*Account, error) {
+	query := "SELECT * FROM account WHERE id = $1"
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("account %d not found", id)
+	}
+	account, err := scanIntoAccount(rows)
+	return &account, err
+
 }
 
 func (s *PostgresStore) GetAccounts() (*[]Account, error) {
@@ -82,15 +93,8 @@ func (s *PostgresStore) GetAccounts() (*[]Account, error) {
 	}
 	accounts := []Account{}
 	for rows.Next() {
-		var account Account
-		if err := rows.Scan(
-			&account.ID,
-			&account.FirstName,
-			&account.LastName,
-			&account.Number,
-			&account.Balance,
-			&account.CreatedAt,
-		); err != nil {
+		account, err := scanIntoAccount(rows)
+		if err != nil {
 			return &accounts, err
 		}
 		accounts = append(accounts, account)
@@ -98,10 +102,27 @@ func (s *PostgresStore) GetAccounts() (*[]Account, error) {
 
 	return &accounts, nil
 }
+
 func (s *PostgresStore) UpdateAccount(acount *Account) error {
 	return nil
 }
 
-func (s *PostgresStore) DeleteAccount(int) error {
-	return nil
+func (s *PostgresStore) DeleteAccount(id int) error {
+	query := "DELETE FROM account WHERE id = $1"
+	_, err := s.db.Exec(query, id)
+
+	return err
+}
+
+func scanIntoAccount(rows *sql.Rows) (Account, error) {
+	var account Account
+	err := rows.Scan(
+		&account.ID,
+		&account.FirstName,
+		&account.LastName,
+		&account.Number,
+		&account.Balance,
+		&account.CreatedAt,
+	)
+	return account, err
 }
