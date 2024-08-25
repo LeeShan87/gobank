@@ -19,8 +19,20 @@ type PostgresStore struct {
 	db *sql.DB
 }
 
-func NewPostgressStore() (*PostgresStore, error) {
-	connStr := "postgres://postgres:gobank@localhost:5400/postgres?sslmode=disable"
+type PostgresStoreConfig struct {
+	user     string
+	password string
+	dbName   string
+	port     string
+}
+
+func NewPostgressStore(config *PostgresStoreConfig) (*PostgresStore, error) {
+	connStr := fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable",
+		config.user,
+		config.password,
+		config.port,
+		config.dbName,
+	)
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, err
