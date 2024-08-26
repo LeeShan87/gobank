@@ -27,11 +27,35 @@ func NewApiServer(listenAddr string, storage Storage) *ApiServer {
 func (s *ApiServer) Run() {
 	router := mux.NewRouter()
 
+	router.HandleFunc("/login", makeHttpHandleFunc(s.handleLogin))
 	router.HandleFunc("/account", makeHttpHandleFunc(s.handleAccount))
 	router.HandleFunc("/account/{id}", withJWTAuth(makeHttpHandleFunc(s.handleAccountWithID), s.store))
 	router.HandleFunc("/transfare", makeHttpHandleFunc(s.handleTransfare))
 	log.Println("Json Api listen on address ", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
+}
+
+func (s *ApiServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
+	var req LogingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return fmt.Errorf("invalid credentials")
+	}
+	acc, err := s.store.GetAccountByNumber(int(req.Number))
+	if err != nil {
+		return fmt.Errorf("invalid credentials")
+	}
+	if !acc.validatePassword(req.Password) {
+		return fmt.Errorf("invalid credentials")
+	}
+	token, err := createJWT(acc)
+	if err != nil {
+		return fmt.Errorf("invalid credentials")
+	}
+	resp := &LoginResponse{
+		Token:  token,
+		Number: int(acc.Number),
+	}
+	return WriteJson(w, http.StatusOK, resp)
 }
 
 func (s *ApiServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
@@ -85,15 +109,14 @@ func (s *ApiServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 	if err := json.NewDecoder(r.Body).Decode(cAR); err != nil {
 		return err
 	}
-	account := NewAccount(cAR.FirstName, cAR.LastName)
-	if err := s.store.CreateAccount(account); err != nil {
-		return err
-	}
-	tokenString, err := createJWT(account)
+	account, err := NewAccount(cAR.FirstName, cAR.LastName, cAR.Password)
 	if err != nil {
 		return err
 	}
-	fmt.Println("JWT Token: ", tokenString)
+	if err := s.store.CreateAccount(account); err != nil {
+		return err
+	}
+
 	return WriteJson(w, http.StatusOK, account)
 }
 

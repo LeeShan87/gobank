@@ -15,3 +15,6 @@ up:
 
 down:
 	docker compose down
+
+seed: build
+	@./bin/gobank --seed=true

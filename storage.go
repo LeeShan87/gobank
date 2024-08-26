@@ -10,20 +10,23 @@ import (
 type Storage interface {
 	CreateAccount(*Account) error
 	GetAccountByID(int) (*Account, error)
+	GetAccountByNumber(int) (*Account, error)
 	GetAccounts() (*[]Account, error)
 	UpdateAccount(*Account) error
 	DeleteAccount(int) error
 }
 
 type PostgresStore struct {
-	db *sql.DB
+	db        *sql.DB
+	tableName string
 }
 
 type PostgresStoreConfig struct {
-	user     string
-	password string
-	dbName   string
-	port     string
+	user      string
+	password  string
+	dbName    string
+	port      string
+	tableName string
 }
 
 func NewPostgressStore(config *PostgresStoreConfig) (*PostgresStore, error) {
@@ -41,39 +44,25 @@ func NewPostgressStore(config *PostgresStoreConfig) (*PostgresStore, error) {
 		return nil, err
 	}
 	return &PostgresStore{
-		db: db,
+		db:        db,
+		tableName: config.tableName,
 	}, nil
-}
-
-func (s *PostgresStore) Init() error {
-	return s.createAccountTable()
-}
-
-func (s *PostgresStore) createAccountTable() error {
-	query := `create table if not exists account (
-		id serial primary key,
-		first_name varchar(50),
-		last_name varchar(50),
-		number serial,
-		balance serial,
-		created_at timestamp
-	)`
-	_, err := s.db.Exec(query)
-	return err
 }
 
 func (s *PostgresStore) CreateAccount(account *Account) error {
 	query := `INSERT INTO account(
 	first_name, 
 	last_name, 
-	number, 
+	encrypted_password,
+	number,
 	balance, 
 	created_at) 
-	values ($1,$2,$3,$4,$5) RETURNING id`
+	values ($1,$2,$3,$4,$5,$6) RETURNING id`
 	if err := s.db.QueryRow(
 		query,
 		account.FirstName,
 		account.LastName,
+		account.EncryptedPassword,
 		account.Number,
 		account.Balance,
 		account.CreatedAt).Scan(&account.ID); err != nil {
@@ -91,6 +80,20 @@ func (s *PostgresStore) GetAccountByID(id int) (*Account, error) {
 	}
 	if !rows.Next() {
 		return nil, fmt.Errorf("account %d not found", id)
+	}
+	account, err := scanIntoAccount(rows)
+	return &account, err
+
+}
+
+func (s *PostgresStore) GetAccountByNumber(id int) (*Account, error) {
+	query := "SELECT * FROM account WHERE number = $1"
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("account with number [%d] not found", id)
 	}
 	account, err := scanIntoAccount(rows)
 	return &account, err
@@ -135,6 +138,7 @@ func scanIntoAccount(rows *sql.Rows) (Account, error) {
 		&account.Number,
 		&account.Balance,
 		&account.CreatedAt,
+		&account.EncryptedPassword,
 	)
 	return account, err
 }
