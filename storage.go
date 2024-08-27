@@ -17,16 +17,14 @@ type Storage interface {
 }
 
 type PostgresStore struct {
-	db        *sql.DB
-	tableName string
+	db *sql.DB
 }
 
 type PostgresStoreConfig struct {
-	user      string
-	password  string
-	dbName    string
-	port      string
-	tableName string
+	user     string
+	password string
+	dbName   string
+	port     string
 }
 
 func NewPostgressStore(config *PostgresStoreConfig) (*PostgresStore, error) {
@@ -44,8 +42,7 @@ func NewPostgressStore(config *PostgresStoreConfig) (*PostgresStore, error) {
 		return nil, err
 	}
 	return &PostgresStore{
-		db:        db,
-		tableName: config.tableName,
+		db: db,
 	}, nil
 }
 
@@ -78,6 +75,7 @@ func (s *PostgresStore) GetAccountByID(id int) (*Account, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		return nil, fmt.Errorf("account %d not found", id)
 	}
@@ -92,6 +90,7 @@ func (s *PostgresStore) GetAccountByNumber(id int) (*Account, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		return nil, fmt.Errorf("account with number [%d] not found", id)
 	}
@@ -106,6 +105,7 @@ func (s *PostgresStore) GetAccounts() (*[]Account, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	accounts := []Account{}
 	for rows.Next() {
 		account, err := scanIntoAccount(rows)
@@ -140,5 +140,11 @@ func scanIntoAccount(rows *sql.Rows) (Account, error) {
 		&account.CreatedAt,
 		&account.EncryptedPassword,
 	)
+	if err != nil {
+		return account, err
+	}
+
+	// Convert CreatedAt to UTC
+	account.CreatedAt = account.CreatedAt.UTC()
 	return account, err
 }

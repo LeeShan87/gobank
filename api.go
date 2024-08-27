@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -15,12 +16,16 @@ import (
 type ApiServer struct {
 	listenAddr string
 	store      Storage
+	server     *http.Server
 }
 
 func NewApiServer(listenAddr string, storage Storage) *ApiServer {
 	return &ApiServer{
 		listenAddr: listenAddr,
 		store:      storage,
+		server: &http.Server{
+			Addr: listenAddr,
+		},
 	}
 }
 
@@ -32,7 +37,23 @@ func (s *ApiServer) Run() {
 	router.HandleFunc("/account/{id}", withJWTAuth(makeHttpHandleFunc(s.handleAccountWithID), s.store))
 	router.HandleFunc("/transfare", makeHttpHandleFunc(s.handleTransfare))
 	log.Println("Json Api listen on address ", s.listenAddr)
-	http.ListenAndServe(s.listenAddr, router)
+	s.server.Handler = router
+	s.server.ListenAndServe()
+
+}
+
+// Shutdown shuts down the api server
+// used in tests
+func (s *ApiServer) Shutdown() error {
+	return s.ShutdownCTX(context.Background())
+}
+func (s *ApiServer) ShutdownCTX(context context.Context) error {
+	fmt.Println("Stopping API server")
+	return s.server.Shutdown(context)
+}
+func (s *ApiServer) getListenAddress() string {
+	url := "http://" + s.server.Addr
+	return url
 }
 
 func (s *ApiServer) handleLogin(w http.ResponseWriter, r *http.Request) error {

@@ -35,11 +35,10 @@ func main() {
 	flag.Parse()
 	listenAddr := os.Getenv("LISTEN_ADDR")
 	dbConfig := &PostgresStoreConfig{
-		user:      os.Getenv("POSTGRES_USER"),
-		password:  os.Getenv("POSTGRES_PASSWORD"),
-		port:      os.Getenv("POSTGRES_PORT"),
-		dbName:    os.Getenv("POSTGRES_DB"),
-		tableName: os.Getenv("POSTGRES_TABLE_NAME"),
+		user:     os.Getenv("POSTGRES_USER"),
+		password: os.Getenv("POSTGRES_PASSWORD"),
+		port:     os.Getenv("POSTGRES_PORT"),
+		dbName:   os.Getenv("POSTGRES_DB"),
 	}
 	storage, err := NewPostgressStore(dbConfig)
 	if err != nil {
